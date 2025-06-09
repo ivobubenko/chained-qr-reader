@@ -1,34 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>QR Scanner Test</title>
-</head>
-<body>
-  <h1>QR Scanner Demo</h1>
-  <video id="qr-video" playsinline autoplay muted style="width: 600px;"></video>
+  <head>
+    <meta charset="utf-8" />
+    <title>QR Scanner Demo</title>
 
-  <script type="module">
-    import { createQrScanner } from './dist/secure-qr-scanner.es.js';
+    <!-- mobile-friendly viewport -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
 
-    async function initCamera(videoElement) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
-        });
-        videoElement.srcObject = stream;
-      } catch (err) {
-        console.error("Camera error:", err);
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
       }
-    }
+      video {
+        width: 100%;
+        max-width: 600px; /* desktop cap */
+        height: auto;
+        background: #000;
+      }
+    </style>
+  </head>
 
-    const videoElement = document.getElementById("qr-video");
+  <body>
+    <h1>QR Scanner Demo</h1>
 
-    initCamera(videoElement).then(() => {
-      createQrScanner(videoElement, (result) => {
-        console.log('✅ Scanned:', result);
-      });
-    });
-  </script>
-</body>
+    <!-- playsinline + webkit-playsinline keep it inline on iOS -->
+    <video id="qr-video" playsinline webkit-playsinline muted autoplay></video>
+
+    <button id="start-btn" hidden>Start camera</button>
+
+    <script type="module">
+      import { createQrScanner } from "./dist/secure-qr-scanner.es.js";
+
+      const video = document.getElementById("qr-video");
+      const startBtn = document.getElementById("start-btn");
+
+      async function openCamera() {
+        // first try rear camera
+        const constraints = {
+          video: {
+            facingMode: { ideal: "environment" }, // iOS 14+ & modern Android
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+          },
+        };
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          video.srcObject = stream;
+          await video.play(); // iOS needs an explicit play()
+          startBtn.hidden = true;
+          // fire up your QR scanner once video is ready
+          createQrScanner(video, (res) => {
+            console.log("✅ Scanned:", res);
+          });
+        } catch (err) {
+          // fallback: try default camera without facingMode
+          if (constraints.video.facingMode) {
+            delete constraints.video.facingMode;
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia(
+                constraints
+              );
+              video.srcObject = stream;
+              await video.play();
+              startBtn.hidden = true;
+              createQrScanner(video, (res) => console.log("✅ Scanned:", res));
+              return;
+            } catch (e) {
+              console.error("Camera error:", e);
+            }
+          } else {
+            console.error("Camera error:", err);
+          }
+          startBtn.hidden = false;
+        }
+      }
+
+      // Some mobile browsers block autoplay until a gesture
+      // Try immediately, else fall back to a tap
+      openCamera();
+
+      startBtn.addEventListener("click", () => openCamera());
+    </script>
+  </body>
 </html>
