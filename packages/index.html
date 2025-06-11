@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QR Scanner Test</title>
+</head>
+<body>
+  <h1>QR Scanner Demo</h1>
+  <video id="qr-video" playsinline autoplay muted style="width: 600px;"></video>
+
+  <script type="module">
+    import { createQrScanner } from './lib/dist/secure-qr-scanner.es.js';
+
+    async function initCamera(videoElement) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        videoElement.srcObject = stream;
+      } catch (err) {
+        console.error("Camera error:", err);
+      }
+    }
+
+    const videoElement = document.getElementById("qr-video");
+
+    initCamera(videoElement).then(() => {
+      createQrScanner(videoElement, (result) => {
+        console.log('✅ Scanned:', result);
+      });
+    });
+  </script>
+</body>
+</html>

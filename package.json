@@ -1,5 +1,9 @@
 {
-  "dependencies": {
-    "@zxing/browser": "^0.1.5"
-  }
+  "name": "secure-qr-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
 }
