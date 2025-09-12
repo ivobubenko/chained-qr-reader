@@ -1,5 +1,5 @@
 {
-  "name": "secure-qr",
+  "name": "@your-username/secure-qr",
   "version": "1.0.0",
   "description": "Library for secure QR code scanning in an isolated environment.",
   "main": "./dist/secure-qr-scanner.umd.js",
@@ -15,6 +15,9 @@
     "dist",
     "src"
   ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "scripts": {
     "build": "rollup -c"
   },
@@ -28,6 +31,10 @@
   ],
   "author": "Your Name",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/chained-qr-reader.git"
+  },
   "dependencies": {
     "@zxing/browser": "^0.1.5",
     "cbor-x": "^1.6.0",
