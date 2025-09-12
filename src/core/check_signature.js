@@ -39,7 +39,6 @@ const importPublicKey = async (jwk) => {
   return crypto.subtle.importKey("jwk", jwk, algorithm, true, ["verify"]);
 };
 const getPublicKey = async (kid) => {
-  console.log(kid);
   const keys = await loadKeys();
   const jwk = pickKey(keys, kid);
   if (!jwk) throw new Error("key_not_found");
@@ -103,7 +102,6 @@ export const readCoseContent = async (content) => {
   let { text, jwkBase } = content;
   JWKS_BASE = jwkBase;
   const qr = text;
-  console.log("CONTENT",content);
   if (!verifySignature(qr)) throw new Error("Verify of QR code failed");
   const [, , payload] = decodeSign1(qr);
   const verified = await verifySignature(qr, JWKS_BASE);

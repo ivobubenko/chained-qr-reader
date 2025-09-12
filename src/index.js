@@ -33,10 +33,6 @@ export const pickSecurityEntry = (entries, text) =>
 export async function createQrScanner(videoElement, onSuccess, securityChain) {
   // const worker = new Worker();
   const codeReader = new BrowserQRCodeReader();
-
-  // worker.onmessage = (event) => onSuccess?.(event.data);
-  // worker.onerror = (event) =>
-  //   console.error("[Main Thread] Worker Error:", event);
   try {
     const devices = await BrowserQRCodeReader.listVideoInputDevices();
     const firstCamera = devices[0]?.deviceId;
@@ -51,26 +47,6 @@ export async function createQrScanner(videoElement, onSuccess, securityChain) {
             typeof result.text === "string" ? result.text.trim() : "";
           try {
             onSuccess(text);
-            /*
-            console.log("TEST");
-            console.log(securityChain);
-            const check = securityChain[0]; //pickSecurityEntry(securityChain, text);
-            console.log("RGAGARA", check);
-            if (check) await check.with({ text: result.text }).run();
-            else console.log(result.text);
-            */
-
-            /*
-            if (text.startsWith("QR1:")) {
-              const data = await readCoseContent(text);
-              onSuccess?.(data);
-            } else {
-              onSuccess?.({ verified: 0, payload: { content: text } });
-            }
-            
-            console.log(data);
-            controls?.stop();
-              */
           } catch (error) {
             console.error(error);
           }
