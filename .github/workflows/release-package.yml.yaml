@@ -1,33 +1,25 @@
-name: Node.js Package
+name: Publish to GitHub Packages
 
 on:
-  release:
-    types: [created]
+  push:
+    tags: ['v*']        # or: release: { types: [published] }
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          registry-url: https://npm.pkg.github.com
+          scope: '@ivobubenko'      # replace with your user/org, e.g. @ivobubenko
       - run: npm ci
-      - run: npm build
-
-  publish-gpr:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          registry-url: https://npm.pkg.github.com/
-      - run: npm ci
+      - run: npm run build
       - run: npm publish
         env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
