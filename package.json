@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "Library for secure QR code scanning in an isolated environment.",
   "main": "./dist/secure-qr-scanner.umd.js",
-  "module": "./dist/secure-qr-scanner.js",
+  "module": "./dist/secure-qr-scanner.es.js",
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/secure-qr-scanner.js",
+      "import": "./dist/secure-qr-scanner.es.js",
       "require": "./dist/secure-qr-scanner.umd.js"
     }
   },

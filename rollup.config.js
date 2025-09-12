@@ -16,7 +16,7 @@ export default {
       format: "umd",
       name: "SecureQrScanner",
       globals: {
-        "@zxing/browser": "ZXingBrowserReaders",
+        "@zxing/browser/readers": "ZXingBrowserReaders",
       },
     },
     {
