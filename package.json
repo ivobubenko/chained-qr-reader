@@ -29,11 +29,11 @@
     "webworker",
     "library"
   ],
-  "author": "Your Name",
+  "author": "Ivo Bubenko",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-username/chained-qr-reader.git"
+    "url": "git+https://github.com/ivobubenko/chained-qr-reader.git"
   },
   "dependencies": {
     "@zxing/browser": "^0.1.5",
