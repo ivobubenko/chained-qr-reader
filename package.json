@@ -1,9 +1,44 @@
 {
-  "name": "secure-qr-monorepo",
-  "private": true,
+  "name": "secure-qr",
   "version": "1.0.0",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  "description": "Library for secure QR code scanning in an isolated environment.",
+  "main": "./dist/secure-qr-scanner.umd.js",
+  "module": "./dist/secure-qr-scanner.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/secure-qr-scanner.js",
+      "require": "./dist/secure-qr-scanner.umd.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "rollup -c"
+  },
+  "keywords": [
+    "qr",
+    "qr-code",
+    "scanner",
+    "secure",
+    "webworker",
+    "library"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@zxing/browser": "^0.1.5",
+    "cbor-x": "^1.6.0",
+    "pako": "^2.1.0",
+    "rollup-plugin-web-worker-loader": "^1.7.0",
+    "ts-custom-error": "^3.3.1",
+    "xss": "^1.0.15"
+  },
+  "devDependencies": {
+    "rollup": "^4.40.0",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-node-resolve": "^5.2.0"
+  }
 }
