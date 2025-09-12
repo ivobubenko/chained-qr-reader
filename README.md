@@ -13,7 +13,7 @@ Configure npm to use GitHub Packages by adding the following to your `.npmrc`:
 Then install the package:
 
 ```
-npm install @your-username/secure-qr
+npm install @your-username/chained-qr-reader
 ```
 
 ## Building
@@ -21,4 +21,3 @@ npm install @your-username/secure-qr
 ```
 npm run build
 ```
-
