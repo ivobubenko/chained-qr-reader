@@ -1,5 +1,5 @@
 {
-  "name": "@your-username/secure-qr",
+  "name": "@ivobubenko/chained-qr-reader",
   "version": "1.0.0",
   "description": "Library for secure QR code scanning in an isolated environment.",
   "main": "./dist/secure-qr-scanner.umd.js",
