@@ -37,7 +37,12 @@
     <button id="start-btn" hidden>Start camera</button>
 
     <script type="module">
-      import { createQrScanner } from "./dist/secure-qr-scanner.es.js";
+      // import cloneDeep from "https://cdn.jsdelivr.net/npm/lodash-es@4.17.21/cloneDeep.js";
+      import {
+        createQrScanner,
+        Runner,
+        readCoseContent,
+      } from "./dist/secure-qr-scanner.es.js";
 
       const video = document.getElementById("qr-video");
       const startBtn = document.getElementById("start-btn");
@@ -58,8 +63,18 @@
           await video.play(); // iOS needs an explicit play()
           startBtn.hidden = true;
           // fire up your QR scanner once video is ready
-          createQrScanner(video, (res) => {
-            console.log("✅ Scanned:", res);
+          const chain = new Runner()
+            .execute(readCoseContent, {
+              jwkBase: "https://d2hnybskbnod8e.cloudfront.net/",
+            });
+          const entries = [{ pattern: "QR1:", securityChain: chain }];
+          console.log(entries);
+          createQrScanner(video, async (res) => {
+            const check = entries[0].securityChain; //pickSecurityEntry(securityChain, text);
+            console.log(check);
+            let result;
+            if (check) result = await check.with({ text: res }).run();
+            console.log(result);
           });
         } catch (err) {
           // fallback: try default camera without facingMode
