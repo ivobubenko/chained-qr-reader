@@ -23,16 +23,8 @@ const startsWithPattern = (pattern, text) => {
 export const pickSecurityEntry = (entries, text) =>
   entries?.find((e) => startsWithPattern(e.pattern, text));
 
-/**  
-  securityChain:
-    [{
-      pattern: String,
-      securityFunctionChain: class
-    }]
-*/
 export async function createQrScanner(videoElement, onSuccess, securityChain, options = {}) {
   const { deviceId: requestedDeviceId, onError } = options ?? {};
-  // const worker = new Worker();
   const codeReader = new BrowserQRCodeReader();
   try {
     const devices = await BrowserQRCodeReader.listVideoInputDevices();
