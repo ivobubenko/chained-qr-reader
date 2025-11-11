@@ -30,21 +30,22 @@ export const pickSecurityEntry = (entries, text) =>
       securityFunctionChain: class
     }]
 */
-export async function createQrScanner(videoElement, onSuccess, securityChain) {
+export async function createQrScanner(videoElement, onSuccess, securityChain, options = {}) {
+  const { deviceId: requestedDeviceId, onError } = options ?? {};
   // const worker = new Worker();
   const codeReader = new BrowserQRCodeReader();
   try {
     const devices = await BrowserQRCodeReader.listVideoInputDevices();
-    const firstCamera = devices[0]?.deviceId;
-    if (!firstCamera) throw new Error("No camera found");
+    const fallbackDeviceId = devices[0]?.deviceId;
+    const targetDeviceId = requestedDeviceId ?? fallbackDeviceId;
+    if (!targetDeviceId) throw new Error("No camera found");
 
-    codeReader.decodeFromVideoDevice(
-      firstCamera,
+    const controls = codeReader.decodeFromVideoDevice(
+      targetDeviceId,
       videoElement,
-      async (result, err, controls) => {
+      async (result, err) => {
         if (result) {
-          const text =
-            typeof result.text === "string" ? result.text.trim() : "";
+          const text = typeof result.text === "string" ? result.text.trim() : "";
           try {
             onSuccess(text);
           } catch (error) {
@@ -52,10 +53,26 @@ export async function createQrScanner(videoElement, onSuccess, securityChain) {
           }
         } else if (err && err.name !== "NotFoundException") {
           console.error(err);
+          if (typeof onError === "function") onError(err);
         }
       }
     );
+
+    return () => {
+      try {
+        controls?.stop?.();
+      } catch (stopErr) {
+        console.warn("Failed to stop QR controls", stopErr);
+      }
+      try {
+        codeReader.reset();
+      } catch (resetErr) {
+        console.warn("Failed to reset QR reader", resetErr);
+      }
+    };
   } catch (err) {
     console.error("[Main Thread] Failed to start scanner:", err);
+    if (typeof onError === "function") onError(err);
+    throw err;
   }
 }
