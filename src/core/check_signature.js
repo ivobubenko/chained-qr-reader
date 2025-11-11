@@ -48,12 +48,7 @@ const getPublicKey = async (kid) => {
 const toBstr = (x) => Uint8Array.from(x);
 const verifySignature = async (cose) => {
   const [protHdr, unprotHdr, payload, signature] = decodeSign1(cose);
-  const sigStructure = [
-    "Signature1",
-    toBstr(protHdr),
-    new Uint8Array(0),
-    toBstr(payload),
-  ];
+  const sigStructure = ["Signature1", toBstr(protHdr), new Uint8Array(0), toBstr(payload)];
   const toSign = cborEncode(sigStructure);
   const sigP1363 = toBstr(signature);
   const publicKey = await getPublicKey();
@@ -82,9 +77,7 @@ export const getPayload = (payload) => {
   const org = pick(payloadClaims, -70010) || {};
   const type = pick(app, "t");
   const contentBytes = pick(app, "c");
-  const content = contentBytes
-    ? JSON.parse(td.decode(contentBytes))
-    : undefined;
+  const content = contentBytes ? JSON.parse(td.decode(contentBytes)) : undefined;
 
   return {
     iss: pick(payloadClaims, 1),

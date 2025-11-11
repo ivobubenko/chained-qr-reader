@@ -8,6 +8,6 @@ self.onmessage = (event) => {
   const purified = sanitizeContent(event.data);
   const urls = extractUrls(purified);
   console.log(urls);
-  
+
   self.postMessage(purified);
 };

@@ -5,8 +5,7 @@ export default class Runner {
     this._previousResult = {};
   }
   execute(fn, options = {}) {
-    if (typeof fn !== "function")
-      throw new TypeError("step must be a function");
+    if (typeof fn !== "function") throw new TypeError("step must be a function");
     this._steps.push({ fn, options });
     return this;
   }
