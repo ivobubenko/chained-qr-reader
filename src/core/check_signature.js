@@ -1,8 +1,46 @@
 import { inflate } from "pako";
 import { decode as cborDecode, encode as cborEncode } from "cbor-x";
 
-// Simple in-memory JWKS cache.
+// Simple in-memory JWKS cache (optionally backed by localStorage).
 let cache = { exp: 0, keys: [] };
+const CACHE_TTL_MS = 60 * 60 * 1000;
+const STORAGE_PREFIX = "secure-qr:jwks:";
+const getStorage = () => {
+  try {
+    return typeof localStorage !== "undefined" ? localStorage : null;
+  } catch {
+    return null;
+  }
+};
+const getCacheKey = (base) => `${STORAGE_PREFIX}${base || ""}`;
+const readPersistentCache = (base) => {
+  const storage = getStorage();
+  if (!storage) return null;
+  const raw = storage.getItem(getCacheKey(base));
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed?.exp === "number" &&
+      Array.isArray(parsed?.keys) &&
+      Date.now() < parsed.exp
+    ) {
+      return parsed;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+};
+const writePersistentCache = (base, nextCache) => {
+  const storage = getStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(getCacheKey(base), JSON.stringify(nextCache));
+  } catch {
+    // Ignore storage failures (quota/blocked).
+  }
+};
 const pickKey = (keys, kid) => {
   if (kid) return keys.find((k) => k.kid === kid);
   const pref = keys.find((k) => (k.alg || "").startsWith("PS")) || keys[0];
@@ -14,14 +52,20 @@ let JWKS_BASE;
 const loadKeys = async () => {
   if (!JWKS_BASE) throw new Error("JWKS_BASE missing");
   if (Date.now() < cache.exp && cache.keys.length) return cache.keys;
+  const persisted = readPersistentCache(JWKS_BASE);
+  if (persisted?.keys?.length) {
+    cache = { exp: persisted.exp, keys: persisted.keys };
+    return cache.keys;
+  }
   const res = await fetch(`${JWKS_BASE}.well-known/jwks.json`);
   if (!res.ok) throw new Error(`jwks_http_${res.status}`);
   const { keys } = await res.json();
   // TTL -> TO BE DONE
   cache = {
-    exp: Date.now() + 3600 * 1000,
+    exp: Date.now() + CACHE_TTL_MS,
     keys: Array.isArray(keys) ? keys : [],
   };
+  writePersistentCache(JWKS_BASE, cache);
   return cache.keys;
 };
 
