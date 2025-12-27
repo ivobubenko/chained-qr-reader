@@ -18,12 +18,7 @@ export async function createQrScanner(videoElement, onSuccess, options = {}) {
           const text = typeof result.text === "string" ? result.text.trim() : "";
           try {
             onSuccess(text);
-          } catch (error) {
-            console.error(error);
-          }
-        } else if (err && err.name !== "NotFoundException") {
-          console.error(err);
-          if (typeof onError === "function") onError(err);
+          } catch (error) {}
         }
       }
     );
@@ -34,9 +29,5 @@ export async function createQrScanner(videoElement, onSuccess, options = {}) {
         controls?.stop?.();
       } catch (resetErr) {}
     };
-  } catch (err) {
-    console.error("Failed to start scanner:", err);
-    if (typeof onError === "function") onError(err);
-    throw err;
-  }
+  } catch (err) {}
 }
