@@ -30,15 +30,9 @@ export async function createQrScanner(videoElement, onSuccess, options = {}) {
 
     return () => {
       try {
-        controls?.stop?.();
-      } catch (stopErr) {
-        console.warn("Failed to stop QR controls", stopErr);
-      }
-      try {
         codeReader.reset();
-      } catch (resetErr) {
-        console.warn("Failed to reset QR reader", resetErr);
-      }
+        controls?.stop?.();
+      } catch (resetErr) {}
     };
   } catch (err) {
     console.error("Failed to start scanner:", err);
