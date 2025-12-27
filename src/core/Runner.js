@@ -4,6 +4,7 @@ export default class Runner {
     this._base = {};
     this._previousResult = {};
   }
+  // Add a step to the pipeline with optional static context overrides.
   execute(fn, options = {}) {
     if (typeof fn !== "function") throw new TypeError("step must be a function");
     this._steps.push({ fn, options });
@@ -16,6 +17,7 @@ export default class Runner {
     this._base = { ...this._base, ...vars };
     return this;
   }
+  // Execute steps sequentially, merging object results into the context.
   async run() {
     let ctx = { ...this._base };
     let prev;

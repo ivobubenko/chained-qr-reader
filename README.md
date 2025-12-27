@@ -1,23 +1,44 @@
-# Secure QR
+# Secure QR Scanner
 
-Library for secure QR code scanning in an isolated environment.
+Browser library for scanning QR codes and verifying signed payloads.
 
-## Installation
-
-Configure npm to use GitHub Packages by adding the following to your `.npmrc`:
+## Install
 
 ```
-@your-username:registry=https://npm.pkg.github.com
+@ivobubenko:registry=https://npm.pkg.github.com
 ```
 
-Then install the package:
-
 ```
-npm install @your-username/chained-qr-reader
+npm install @ivobubenko/chained-qr-reader
 ```
 
-## Building
+## Quick usage
 
 ```
-npm run build
+import { createQrScanner } from "@ivobubenko/chained-qr-reader";
+
+const stop = await createQrScanner(videoEl, (text) => {
+  console.log("QR:", text);
+});
 ```
+
+```
+import { readCoseContent } from "@ivobubenko/chained-qr-reader";
+
+const { verified, payload } = await readCoseContent({
+  text,
+  jwkBase: "https://issuer.example.com/",
+});
+```
+
+## Notes
+
+- Camera access requires `https://` or `http://localhost`.
+- Call `createQrScanner` from a user action (click/tap) to trigger permissions.
+
+## API
+
+- `createQrScanner(videoEl, onSuccess, options)`
+- `readCoseContent({ text, jwkBase })`
+- `pickSecurityEntry(entries, text)`
+- `Runner`

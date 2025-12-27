@@ -1,6 +1,7 @@
 import { inflate } from "pako";
 import { decode as cborDecode, encode as cborEncode } from "cbor-x";
 
+// Simple in-memory JWKS cache.
 let cache = { exp: 0, keys: [] };
 const pickKey = (keys, kid) => {
   if (kid) return keys.find((k) => k.kid === kid);
@@ -9,6 +10,7 @@ const pickKey = (keys, kid) => {
 };
 
 let JWKS_BASE;
+// Fetch and cache keys from the configured JWKS base URL.
 const loadKeys = async () => {
   if (!JWKS_BASE) throw new Error("JWKS_BASE missing");
   if (Date.now() < cache.exp && cache.keys.length) return cache.keys;
@@ -23,6 +25,7 @@ const loadKeys = async () => {
   return cache.keys;
 };
 
+// Decode a QR1: prefix payload into a COSE_Sign1 structure.
 const decodeSign1 = (cose) => {
   if (cose.startsWith("QR1:")) {
     const zipped = Uint8Array.fromBase64(cose.slice(4), {
@@ -46,8 +49,9 @@ const getPublicKey = async (kid) => {
 };
 
 const toBstr = (x) => Uint8Array.from(x);
+// Verify COSE signature using the Sig_structure.
 const verifySignature = async (cose) => {
-  const [protHdr, unprotHdr, payload, signature] = decodeSign1(cose);
+  const [protHdr, , payload, signature] = decodeSign1(cose);
   const sigStructure = ["Signature1", toBstr(protHdr), new Uint8Array(0), toBstr(payload)];
   const toSign = cborEncode(sigStructure);
   const sigP1363 = toBstr(signature);
@@ -71,6 +75,7 @@ const toHex = (u8) =>
   u8 && u8.length != null
     ? [...u8].map((b) => b.toString(16).padStart(2, "0")).join("")
     : undefined;
+// Parse payload claims and map app/org fields into a flat object.
 export const getPayload = (payload) => {
   const payloadClaims = cborDecode(payload);
   const app = pick(payloadClaims, -70000) || {};

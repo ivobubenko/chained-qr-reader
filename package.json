@@ -19,7 +19,9 @@
     "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "lint": "eslint \"src/**/*.js\" \"tests/**/*.js\"",
+    "test": "vitest run"
   },
   "keywords": [
     "qr",
@@ -42,8 +44,10 @@
     "rollup-plugin-web-worker-loader": "^1.7.0"
   },
   "devDependencies": {
+    "eslint": "^9.13.0",
     "rollup": "^4.40.0",
     "rollup-plugin-commonjs": "^10.1.0",
-    "rollup-plugin-node-resolve": "^5.2.0"
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "vitest": "^2.1.4"
   }
 }

@@ -9,7 +9,7 @@ permissions:
   packages: write
 
 jobs:
-  publish:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -17,7 +17,21 @@ jobs:
         with:
           node-version: 20
           registry-url: https://npm.pkg.github.com
-          scope: '@ivobubenko'      # replace with your user/org, e.g. @ivobubenko
+          scope: '@ivobubenko'
+      - run: npm ci
+      - run: npm run test
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  publish:
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com
+          scope: '@ivobubenko'
       - run: npm ci
       - run: npm run build
       - run: npm publish
