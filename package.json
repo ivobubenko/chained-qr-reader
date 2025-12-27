@@ -1,6 +1,6 @@
 {
   "name": "@ivobubenko/chained-qr-reader",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Library for secure QR code scanning in an isolated environment.",
   "main": "./dist/secure-qr-scanner.umd.js",
   "module": "./dist/secure-qr-scanner.es.js",
