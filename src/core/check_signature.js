@@ -12,6 +12,7 @@ const getStorage = () => {
     return null;
   }
 };
+
 const getCacheKey = (base) => `${STORAGE_PREFIX}${base || ""}`;
 const readPersistentCache = (base) => {
   const storage = getStorage();
@@ -20,11 +21,7 @@ const readPersistentCache = (base) => {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    if (
-      typeof parsed?.exp === "number" &&
-      Array.isArray(parsed?.keys) &&
-      Date.now() < parsed.exp
-    ) {
+    if (typeof parsed?.exp === "number" && Array.isArray(parsed?.keys) && Date.now() < parsed.exp) {
       return parsed;
     }
   } catch {
