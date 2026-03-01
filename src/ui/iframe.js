@@ -4,7 +4,6 @@ export async function createUiIframe(
   options = {
     scannerModuleUrls: [
       new URL("./secure-qr-scanner.es.js", import.meta.url).href,
-      new URL("../index.js", import.meta.url).href,
     ],
     expectedOrigin: window.location.origin,
     parentTargetOrigin: "*",
