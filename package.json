@@ -19,7 +19,7 @@
     "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
-    "build": "rollup -c && cp src/ui/iframe.config.json dist/iframe.config.json",
+    "build": "rollup -c",
     "lint": "eslint \"src/**/*.js\" \"tests/**/*.js\"",
     "test": "vitest run"
   },
