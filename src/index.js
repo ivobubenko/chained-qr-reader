@@ -4,6 +4,7 @@ export { default as Runner } from "./core/Runner.js";
 export { pickSecurityEntry } from "./core/match_pattern_runner.js";
 export { createQrScanner } from "./core/create_scanner.js";
 export { readCoseContent };
+export { createUiIframe } from "./ui/iframe.js";
 
 // Helper that trims raw input before verification.
 export async function readCoseContentDirectly(cose) {

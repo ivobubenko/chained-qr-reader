@@ -7,10 +7,12 @@ export async function createQrScanner(videoElement, onSuccess, options = {}) {
   try {
     const devices = await BrowserQRCodeReader.listVideoInputDevices();
     const fallbackDeviceId = devices[0]?.deviceId;
-    const targetDeviceId = requestedDeviceId ?? fallbackDeviceId;
+    const normalizedRequestedDeviceId =
+      typeof requestedDeviceId === "string" ? requestedDeviceId.trim() : requestedDeviceId;
+    const targetDeviceId = normalizedRequestedDeviceId || fallbackDeviceId || null;
     if (!targetDeviceId) throw new Error("No camera found");
 
-    const controls = codeReader.decodeFromVideoDevice(
+    const controls = await codeReader.decodeFromVideoDevice(
       targetDeviceId,
       videoElement,
       async (result, err) => {
@@ -29,5 +31,10 @@ export async function createQrScanner(videoElement, onSuccess, options = {}) {
         controls?.stop?.();
       } catch (resetErr) {}
     };
-  } catch (err) {}
+  } catch (err) {
+    try {
+      onError?.(err);
+    } catch {}
+    return () => {};
+  }
 }
