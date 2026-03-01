@@ -21,7 +21,7 @@ export async function createUiIframe(
   const messageChannel = Math.random().toString(36).slice(2);
 
   iframe.title = "QR Scanner";
-  iframe.allow = "camera; autoplay";
+  iframe.allow = "camera *; autoplay *";
   iframe.referrerPolicy = "no-referrer";
   iframe.loading = "eager";
   iframe.sandbox = "allow-scripts allow-same-origin";
@@ -37,6 +37,7 @@ export async function createUiIframe(
   video{width:100%;max-width:600px;height:auto;background:#000;border-radius:8px}
   .c{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
   button{padding:10px 14px;border-radius:8px;border:1px solid #ddd;background:#fff}
+  .m{margin:0;max-width:600px;font:12px/1.4 sans-serif;color:#d00;text-align:center;display:none}
 </style>
 </head>
 <body>
@@ -46,6 +47,7 @@ export async function createUiIframe(
     <button id="st" type="button">Start</button>
     <button id="sp" type="button" disabled>Stop</button>
   </div>
+  <p class="m" id="m"></p>
 
 <script type="module">
   const scannerModuleUrls = ${JSON.stringify(options.scannerModuleUrls)};
@@ -56,8 +58,31 @@ export async function createUiIframe(
   const btnSwitch = document.getElementById("sw");
   const btnStart = document.getElementById("st");
   const btnStop = document.getElementById("sp");
+  const message = document.getElementById("m");
+
+  const setMessage = (text = "") => {
+    const value = String(text || "").trim();
+    message.textContent = value;
+    message.style.display = value ? "block" : "none";
+  };
+
+  const toMessage = (error) => {
+    const raw = String(error?.message || error || "").trim();
+    const msg = raw || "Failed to start camera.";
+    if (/notallowederror|permission/i.test(msg)) {
+      return "Camera permission denied. Allow camera access in the browser and iframe settings.";
+    }
+    if (/notfounderror|no camera|videoinput/i.test(msg)) {
+      return "No camera found on this device.";
+    }
+    if (/secure context|https|insecure/i.test(msg)) {
+      return "Camera requires HTTPS (or localhost).";
+    }
+    return msg;
+  };
 
   let createQrScanner = null;
+  let moduleLoadError = null;
   for (const url of scannerModuleUrls) {
     try {
       const mod = await import(url);
@@ -65,7 +90,12 @@ export async function createUiIframe(
         createQrScanner = mod.createQrScanner;
         break;
       }
-    } catch {}
+    } catch (error) {
+      moduleLoadError = error;
+    }
+  }
+  if (typeof createQrScanner !== "function") {
+    setMessage(moduleLoadError ? toMessage(moduleLoadError) : "Scanner module failed to load.");
   }
 
   let devices = [];
@@ -88,27 +118,56 @@ export async function createUiIframe(
   };
 
   const loadDevices = async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      devices = [];
+      return;
+    }
     const list = await navigator.mediaDevices.enumerateDevices();
     devices = list.filter((d) => d.kind === "videoinput");
     if (devices.length && idx >= devices.length) idx = 0;
   };
 
   const start = async () => {
+    setMessage("");
     if (typeof createQrScanner !== "function") {
+      setMessage(moduleLoadError ? toMessage(moduleLoadError) : "Scanner module unavailable.");
+      setState(false);
+      return;
+    }
+    if (!window.isSecureContext) {
+      setMessage("Camera requires HTTPS (or localhost).");
+      setState(false);
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMessage("Camera API not available in this browser context.");
       setState(false);
       return;
     }
     stop();
     await loadDevices();
     const deviceId = devices[idx]?.deviceId;
-    stopScanner = await createQrScanner(
-      video,
-      (text) => {
-        window.parent.postMessage({ type: messageType, channel: messageChannel, text }, parentOrigin);
-        return text;
-      },
-      { deviceId }
-    );
+    const onScan = (text) => {
+      window.parent.postMessage({ type: messageType, channel: messageChannel, text }, parentOrigin);
+      return text;
+    };
+    const onError = (error) => setMessage(toMessage(error));
+
+    try {
+      stopScanner = await createQrScanner(video, onScan, {
+        deviceId,
+        onError,
+      });
+    } catch (error) {
+      const raw = String(error?.message || error || "");
+      const shouldRetryWithoutDevice =
+        !!deviceId && /notfounderror|overconstrained|video source/i.test(raw);
+      if (!shouldRetryWithoutDevice) throw error;
+      stopScanner = await createQrScanner(video, onScan, { onError });
+    }
+    if (typeof stopScanner !== "function") {
+      throw new Error("Failed to start camera.");
+    }
     await loadDevices();
     setState(typeof stopScanner === "function");
   };
@@ -120,9 +179,19 @@ export async function createUiIframe(
     await start();
   };
 
-  btnStart.addEventListener("click", () => start().catch(() => setState(false)));
+  btnStart.addEventListener("click", () =>
+    start().catch((error) => {
+      setMessage(toMessage(error));
+      setState(false);
+    })
+  );
   btnStop.addEventListener("click", () => stop());
-  btnSwitch.addEventListener("click", () => nextCamera().catch(() => {}));
+  btnSwitch.addEventListener("click", () =>
+    nextCamera().catch((error) => {
+      setMessage(toMessage(error));
+      setState(false);
+    })
+  );
 
   setState(false);
 </script>

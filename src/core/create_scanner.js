@@ -5,12 +5,11 @@ export async function createQrScanner(videoElement, onSuccess, options = {}) {
   const { deviceId: requestedDeviceId, onError } = options ?? {};
   const codeReader = new BrowserQRCodeReader();
   try {
-    const devices = await BrowserQRCodeReader.listVideoInputDevices();
+    const devices = await BrowserQRCodeReader.listVideoInputDevices().catch(() => []);
     const fallbackDeviceId = devices[0]?.deviceId;
     const normalizedRequestedDeviceId =
       typeof requestedDeviceId === "string" ? requestedDeviceId.trim() : requestedDeviceId;
-    const targetDeviceId = normalizedRequestedDeviceId || fallbackDeviceId || null;
-    if (!targetDeviceId) throw new Error("No camera found");
+    const targetDeviceId = normalizedRequestedDeviceId || fallbackDeviceId || undefined;
 
     const controls = await codeReader.decodeFromVideoDevice(
       targetDeviceId,
@@ -32,9 +31,10 @@ export async function createQrScanner(videoElement, onSuccess, options = {}) {
       } catch (resetErr) {}
     };
   } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err ?? "Unknown camera error"));
     try {
-      onError?.(err);
+      onError?.(error);
     } catch {}
-    return () => {};
+    throw error;
   }
 }
