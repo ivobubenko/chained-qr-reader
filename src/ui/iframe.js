@@ -21,7 +21,7 @@ export async function createUiIframe(
   iframe.allow = "camera *; autoplay *";
   iframe.referrerPolicy = "no-referrer";
   iframe.loading = "eager";
-  iframe.sandbox = "allow-scripts";
+  iframe.sandbox = "allow-scripts allow-same-origin";
   iframe.style.cssText = options.iframeStyle;
 
   iframe.srcdoc = `<!doctype html>
