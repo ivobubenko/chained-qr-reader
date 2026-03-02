@@ -1,4 +1,5 @@
 import { pickSecurityEntry } from "../core/match_pattern_runner";
+import { preventXss } from "../core/xss";
 export async function createUiIframe(
   onSuccess,
   options = {
@@ -208,7 +209,12 @@ export async function createUiIframe(
     const result = hasSecurityChain ? await entry.securityChain.with({ text }).run() : { text };
 
     window.parent.postMessage(
-      { type: options.parentMessageType, channel: messageChannel, text, result },
+      {
+        type: options.parentMessageType,
+        channel: messageChannel,
+        text: preventXss(text),
+        result: preventXss(result),
+      },
       options.parentTargetOrigin
     );
   });

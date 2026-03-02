@@ -87,6 +87,7 @@
           pattern: `${deepLinkPrefix}${qrPattern}`,
           securityChain: chainDeep,
         },
+        { pattern: "", securityChain: new Runner() },
       ];
 
       const scannerIframe = await createUiIframe(securityChain, {

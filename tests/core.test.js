@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { pickSecurityEntry } from "../src/index.js";
+import { pickSecurityEntry, preventXss } from "../src/index.js";
 import { readCoseContent, getPayload } from "../src/core/check_signature.js";
 import { deflate } from "pako";
 import { encode as cborEncode } from "cbor-x";
@@ -37,6 +37,18 @@ describe("pickSecurityEntry", () => {
     expect(pickSecurityEntry(entries, "QR1:payload")).toEqual(entries[1]);
     expect(pickSecurityEntry(entries, "ABC123")).toEqual(entries[0]);
     expect(pickSecurityEntry(entries, "none")).toBeUndefined();
+  });
+});
+
+describe("preventXss", () => {
+  it("escapes HTML special characters", () => {
+    const input = `<img src=x onerror="alert('xss')">`;
+    expect(preventXss(input)).toBe("&lt;img src=x onerror=&quot;alert(&#39;xss&#39;)&quot;&gt;");
+  });
+
+  it("handles nullish and non-string values", () => {
+    expect(preventXss(null)).toBe("null");
+    expect(preventXss(123)).toBe("123");
   });
 });
 
