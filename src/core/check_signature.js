@@ -141,7 +141,6 @@ export const readCoseContent = async (content) => {
   let { text, jwkBase } = content;
   JWKS_BASE = jwkBase;
   const qr = text;
-  if (!verifySignature(qr)) throw new Error("Verify of QR code failed");
   const [, , payload] = decodeSign1(qr);
   const verified = await verifySignature(qr, JWKS_BASE);
   return { verified, payload: getPayload(payload) };

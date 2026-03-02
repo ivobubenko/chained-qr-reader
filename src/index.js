@@ -5,6 +5,7 @@ export { pickSecurityEntry } from "./core/match_pattern_runner.js";
 export { createQrScanner } from "./core/create_scanner.js";
 export { readCoseContent };
 export { createUiIframe } from "./ui/iframe.js";
+export { createUiDiv } from "./ui/div.js";
 
 // Helper that trims raw input before verification.
 export async function readCoseContentDirectly(cose) {

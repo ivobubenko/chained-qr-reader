@@ -2,9 +2,7 @@ import { pickSecurityEntry } from "../core/match_pattern_runner";
 export async function createUiIframe(
   onSuccess,
   options = {
-    scannerModuleUrls: [
-      new URL("./secure-qr-scanner.es.js", import.meta.url).href,
-    ],
+    scannerModuleUrls: [new URL("./secure-qr-scanner.es.js", import.meta.url).href],
     expectedOrigin: window.location.origin,
     parentTargetOrigin: "*",
     parentMessageType: "secure-qr-scan-result",
@@ -23,7 +21,7 @@ export async function createUiIframe(
   iframe.allow = "camera *; autoplay *";
   iframe.referrerPolicy = "no-referrer";
   iframe.loading = "eager";
-  iframe.sandbox = "allow-scripts allow-same-origin";
+  iframe.sandbox = "allow-scripts";
   iframe.style.cssText = options.iframeStyle;
 
   iframe.srcdoc = `<!doctype html>
