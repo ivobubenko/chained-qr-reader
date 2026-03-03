@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FunctionChainer, handleQrPayload, preventXss } from "../src/index.js";
+import { FunctionChainer, preventXss } from "../src/index.js";
 import { readCoseContent, getPayload } from "../src/core/functions/check_signature.js";
 import { deflate } from "pako";
 import { encode as cborEncode } from "cbor-x";
@@ -35,11 +35,11 @@ describe("preventXss", () => {
 });
 
 describe("FunctionChainer", () => {
-  it("matches string and regex patterns via handleQrPayload", () => {
+  it("matches string and regex patterns", () => {
     const byPrefix = { pattern: "ABC", functions: [] };
     const byRegex = { pattern: /^QR[0-9]/, functions: [] };
     const fallback = { pattern: "", functions: [] };
-    const chain = handleQrPayload([byPrefix, byRegex, fallback]);
+    const chain = new FunctionChainer([byPrefix, byRegex, fallback]);
 
     expect(chain).toBeInstanceOf(FunctionChainer);
     expect(chain.pickSecurityEntry("QR1:payload")?.pattern).toBe(byRegex.pattern);
@@ -48,7 +48,7 @@ describe("FunctionChainer", () => {
   });
 
   it("runs the matched function pipeline", async () => {
-    const chain = handleQrPayload([
+    const chain = new FunctionChainer([
       {
         pattern: "QR1:",
         functions: [{ fn: ({ text }) => ({ normalized: text.toLowerCase() }) }],

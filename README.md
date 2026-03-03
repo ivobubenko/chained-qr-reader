@@ -40,7 +40,6 @@ const { verified, payload } = await readCoseContent({
 
 - `createQrScanner(videoEl, onSuccess, options)`
 - `readCoseContent({ text, jwkBase })`
-- `handleQrPayload(options)`
 - `FunctionChainer`
 - `preventXss(value)`
 - `createUiIframe(onSuccess, options)`
