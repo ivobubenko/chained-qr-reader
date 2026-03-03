@@ -1,10 +1,9 @@
-import { readCoseContent } from "./core/check_signature.js";
+import { readCoseContent } from "./core/functions/check_signature.js";
 // Public API re-exports from the refactored core modules.
-export { default as Runner } from "./core/Runner.js";
-export { pickSecurityEntry } from "./core/match_pattern_runner.js";
-export { createQrScanner } from "./core/create_scanner.js";
+export { FunctionChainer } from "./core/class/FunctionChainer.js";
+export { createQrScanner } from "./core/functions/create_scanner.js";
 export { readCoseContent };
-export { preventXss } from "./core/xss.js";
+export { preventXss } from "./core/functions/xss.js";
 export { createUiIframe } from "./ui/iframe.js";
 export { createUiDiv } from "./ui/div.js";
 

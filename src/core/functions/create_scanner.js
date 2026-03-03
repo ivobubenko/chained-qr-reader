@@ -14,12 +14,16 @@ export async function createQrScanner(videoElement, onSuccess, options = {}) {
     const controls = await codeReader.decodeFromVideoDevice(
       targetDeviceId,
       videoElement,
-      async (result, err) => {
+      async (result, _) => {
         if (result) {
           const text = typeof result.text === "string" ? result.text.trim() : "";
           try {
-            onSuccess(text);
-          } catch (error) {}
+            if (typeof onSuccess === "function") {
+              await Promise.resolve(onSuccess(text));
+            } else if (onSuccess && typeof onSuccess.check === "function") {
+              await Promise.resolve(onSuccess.check(text));
+            }
+          } catch (_) {}
         }
       }
     );
@@ -28,7 +32,7 @@ export async function createQrScanner(videoElement, onSuccess, options = {}) {
       try {
         codeReader.reset();
         controls?.stop?.();
-      } catch (resetErr) {}
+      } catch (_) {}
     };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err ?? "Unknown camera error"));

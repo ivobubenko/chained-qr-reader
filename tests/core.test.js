@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { pickSecurityEntry, preventXss } from "../src/index.js";
-import { readCoseContent, getPayload } from "../src/core/check_signature.js";
+import { FunctionChainer, handleQrPayload, preventXss } from "../src/index.js";
+import { readCoseContent, getPayload } from "../src/core/functions/check_signature.js";
 import { deflate } from "pako";
 import { encode as cborEncode } from "cbor-x";
 
@@ -27,19 +27,40 @@ const buildQr1 = (payloadBytes) => {
   return `QR1:${toBase64Url(zipped)}`;
 };
 
-describe("pickSecurityEntry", () => {
-  it("matches string and regex patterns", () => {
-    const entries = [{ pattern: "ABC" }, { pattern: /^QR[0-9]/ }, { pattern: "XYZ" }];
-    expect(pickSecurityEntry(entries, "QR1:payload")).toEqual(entries[1]);
-    expect(pickSecurityEntry(entries, "ABC123")).toEqual(entries[0]);
-    expect(pickSecurityEntry(entries, "none")).toBeUndefined();
-  });
-});
-
 describe("preventXss", () => {
   it("handles nullish and non-string values", () => {
     expect(preventXss(null)).toBe("null");
     expect(preventXss(123)).toBe("123");
+  });
+});
+
+describe("FunctionChainer", () => {
+  it("matches string and regex patterns via handleQrPayload", () => {
+    const byPrefix = { pattern: "ABC", functions: [] };
+    const byRegex = { pattern: /^QR[0-9]/, functions: [] };
+    const fallback = { pattern: "", functions: [] };
+    const chain = handleQrPayload([byPrefix, byRegex, fallback]);
+
+    expect(chain).toBeInstanceOf(FunctionChainer);
+    expect(chain.pickSecurityEntry("QR1:payload")?.pattern).toBe(byRegex.pattern);
+    expect(chain.pickSecurityEntry("ABC123")?.pattern).toBe(byPrefix.pattern);
+    expect(chain.pickSecurityEntry("none")?.pattern).toBe(fallback.pattern);
+  });
+
+  it("runs the matched function pipeline", async () => {
+    const chain = handleQrPayload([
+      {
+        pattern: "QR1:",
+        functions: [{ fn: ({ text }) => ({ normalized: text.toLowerCase() }) }],
+      },
+      {
+        pattern: "",
+        functions: [{ fn: ({ text }) => ({ text }) }],
+      },
+    ]);
+
+    const result = await chain.check("QR1:ABC");
+    expect(result.normalized).toBe("qr1:abc");
   });
 });
 

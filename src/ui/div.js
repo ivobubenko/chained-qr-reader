@@ -1,5 +1,4 @@
-import { createQrScanner } from "../core/create_scanner.js";
-import { pickSecurityEntry } from "../core/match_pattern_runner.js";
+import { createScannerHandlers, toMessage } from "./functions.js";
 
 const defaultOptions = {
   parentTargetOrigin: "*",
@@ -53,150 +52,27 @@ export async function createUiDiv(onSuccess, options = {}) {
   controls.append(btnSwitch, btnStart, btnStop);
   container.append(video, controls, message);
 
-  let devices = [];
-  let idx = 0;
-  let stopScanner = null;
+  const { start, stop, nextCamera, setUiMessage } = createScannerHandlers({
+    video,
+    message,
+    btnStart,
+    btnStop,
+    btnSwitch,
+    onSuccess,
+    settings,
+    messageChannel,
+  });
 
-  const setMessage = (text = "") => {
-    const value = String(text || "").trim();
-    message.textContent = value;
-    message.style.display = value ? "block" : "none";
-  };
-
-  const setState = (running) => {
-    btnStart.disabled = running;
-    btnStop.disabled = !running;
-    btnSwitch.disabled = devices.length < 2;
-  };
-
-  const toMessage = (error) => {
-    const raw = String(error?.message || error || "").trim();
-    const msg = raw || "Failed to start camera.";
-    if (/notallowederror|permission/i.test(msg)) {
-      return "Camera permission denied. Allow camera access in the browser settings.";
-    }
-    if (/notfounderror|no camera|videoinput/i.test(msg)) {
-      return "No camera found on this device.";
-    }
-    if (/secure context|https|insecure/i.test(msg)) {
-      return "Camera requires HTTPS (or localhost).";
-    }
-    return msg;
-  };
-
-  const loadDevices = async () => {
-    if (!navigator.mediaDevices?.enumerateDevices) {
-      devices = [];
-      return;
-    }
-    const list = await navigator.mediaDevices.enumerateDevices();
-    devices = list.filter((d) => d.kind === "videoinput");
-    if (devices.length && idx >= devices.length) idx = 0;
-  };
-
-  const stop = () => {
-    if (typeof stopScanner === "function") {
-      stopScanner();
-      stopScanner = null;
-    }
-    video.srcObject = null;
-    setState(false);
-  };
-
-  const handleScan = async (text) => {
-    const value = typeof text === "string" ? text.trim() : "";
-    const entry = pickSecurityEntry(onSuccess, value);
-    const hasSecurityChain = entry === undefined ? false : true;
-    const result = hasSecurityChain
-      ? await entry.securityChain.with({ text: value }).run()
-      : { text: value };
-
-    window.parent.postMessage(
-      { type: settings.parentMessageType, channel: messageChannel, text: value, result },
-      settings.parentTargetOrigin
-    );
-  };
-
-  const start = async () => {
-    setMessage("");
-
-    if (!window.isSecureContext) {
-      setMessage("Camera requires HTTPS (or localhost).");
-      setState(false);
-      return;
-    }
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setMessage("Camera API not available in this browser context.");
-      setState(false);
-      return;
-    }
-
+  const handleError = (error) => {
+    setUiMessage(toMessage(error));
     stop();
-    await loadDevices();
-    const deviceId = devices[idx]?.deviceId;
-    const onError = (error) => setMessage(toMessage(error));
-
-    try {
-      stopScanner = await createQrScanner(
-        video,
-        (text) => {
-          handleScan(text).catch((error) => {
-            setMessage(toMessage(error));
-          });
-          return text;
-        },
-        {
-          deviceId,
-          onError,
-        }
-      );
-    } catch (error) {
-      const raw = String(error?.message || error || "");
-      const shouldRetryWithoutDevice =
-        !!deviceId && /notfounderror|overconstrained|video source/i.test(raw);
-      if (!shouldRetryWithoutDevice) throw error;
-      stopScanner = await createQrScanner(
-        video,
-        (text) => {
-          handleScan(text).catch((handleError) => {
-            setMessage(toMessage(handleError));
-          });
-          return text;
-        },
-        { onError }
-      );
-    }
-
-    if (typeof stopScanner !== "function") {
-      throw new Error("Failed to start camera.");
-    }
-
-    await loadDevices();
-    setState(true);
   };
 
-  const nextCamera = async () => {
-    await loadDevices();
-    if (devices.length < 2) return;
-    idx = (idx + 1) % devices.length;
-    await start();
-  };
-
-  btnStart.addEventListener("click", () =>
-    start().catch((error) => {
-      setMessage(toMessage(error));
-      setState(false);
-    })
-  );
+  btnStart.addEventListener("click", () => start().catch(handleError));
   btnStop.addEventListener("click", () => stop());
-  btnSwitch.addEventListener("click", () =>
-    nextCamera().catch((error) => {
-      setMessage(toMessage(error));
-      setState(false);
-    })
-  );
+  btnSwitch.addEventListener("click", () => nextCamera().catch(handleError));
 
-  setState(false);
+  stop();
   container.stop = stop;
   return container;
 }

@@ -44,7 +44,11 @@
     </main>
 
     <script type="module">
-      import { Runner, readCoseContent, createUiDiv } from "./dist/secure-qr-scanner.es.js";
+      import {
+        readCoseContent,
+        createUiDiv,
+        FunctionChainer,
+      } from "./dist/secure-qr-scanner.es.js";
 
       const qrPattern = "QR1:";
       const buildDeepLinkPrefix = () => {
@@ -60,20 +64,30 @@
         return { text: value.startsWith(prefix) ? value.slice(prefix.length) : value };
       };
 
-      const chainJwk = new Runner().execute(readCoseContent, {
-        jwkBase: "https://d2hnybskbnod8e.cloudfront.net/",
-      });
-
-      const chainDeep = new Runner()
-        .execute(stripDeepLink, { prefix: deepLinkPrefix })
-        .execute(readCoseContent, {
-          jwkBase: "https://d2hnybskbnod8e.cloudfront.net/",
-        });
-
-      const securityChain = [
-        { pattern: qrPattern, securityChain: chainJwk },
-        { pattern: `${deepLinkPrefix}${qrPattern}`, securityChain: chainDeep },
-      ];
+      const securityChain = new FunctionChainer([
+        {
+          pattern: qrPattern,
+          functions: [
+            {
+              fn: readCoseContent,
+              context: {
+                jwkBase: "https://d2hnybskbnod8e.cloudfront.net/",
+              },
+            },
+          ],
+        },
+        {
+          pattern: `${deepLinkPrefix}${qrPattern}`,
+          functions: [
+            { fn: stripDeepLink, context: { prefix: deepLinkPrefix } },
+            { fn: readCoseContent, context: { jwkBase: "https://d2hnybskbnod8e.cloudfront.net/" } },
+          ],
+        },
+        {
+          pattern: "",
+          functions: [{ fn: () => {}, context: {} }],
+        },
+      ]);
 
       const scannerUi = await createUiDiv(securityChain, {
         containerStyle:
