@@ -128,11 +128,14 @@ describe("check_signature", () => {
   });
 
   it("verifies and returns decoded payload from QR1 content", async () => {
+    // exp/iat are now checked, so this fixture has to be a currently valid token
+    // rather than the fixed 2024 timestamps used before.
+    const nowS = Math.floor(Date.now() / 1000);
     const payloadClaims = new Map([
       [1, "issuer"],
       [2, "org-123"],
-      [4, 1712345678],
-      [6, 1712340000],
+      [4, nowS + 3600],
+      [6, nowS - 60],
       [7, new Uint8Array([0x0a, 0x0b])],
       [
         -70000,

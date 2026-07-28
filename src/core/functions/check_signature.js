@@ -38,10 +38,16 @@ const writePersistentCache = (base, nextCache) => {
     // Ignore storage failures (quota/blocked).
   }
 };
-const pickKey = (keys, kid) => {
-  if (kid) return keys.find((k) => k.kid === kid);
-  const pref = keys.find((k) => (k.alg || "").startsWith("PS")) || keys[0];
-  return pref;
+// Select the candidate verification keys for a token.
+// When the protected header carries a kid, exactly that key is used. When it does
+// not, every key in the JWKS document is a candidate, because the verifier trusts
+// the key set of the issuer origin as a whole. Returning all keys (rather than the
+// first one) is what makes key rotation work: during the overlap window the set
+// contains both the outgoing and the incoming key.
+const selectKeys = (keys, kid) => {
+  if (!Array.isArray(keys)) return [];
+  if (kid) return keys.filter((k) => k.kid === kid);
+  return keys;
 };
 
 let JWKS_BASE;
@@ -82,31 +88,67 @@ const importPublicKey = async (jwk) => {
   const algorithm = { name: "ECDSA", namedCurve: jwk.crv || "P-256" };
   return crypto.subtle.importKey("jwk", jwk, algorithm, true, ["verify"]);
 };
-const getPublicKey = async (kid) => {
+const getPublicKeys = async (kid) => {
   const keys = await loadKeys();
-  const jwk = pickKey(keys, kid);
-  if (!jwk) throw new Error("key_not_found");
-  return importPublicKey(jwk);
+  const candidates = selectKeys(keys, kid);
+  if (!candidates.length) throw new Error("key_not_found");
+  return Promise.all(candidates.map(importPublicKey));
 };
 
 const toBstr = (x) => Uint8Array.from(x);
+
+// Read the kid from the COSE protected header (header parameter 4). It may be
+// encoded as a byte string or as a text string; a header that cannot be decoded
+// yields undefined, which falls back to trying the whole key set.
+const tdKid = new TextDecoder();
+const getKid = (protHdr) => {
+  try {
+    const bytes = toBstr(protHdr);
+    if (!bytes.length) return undefined;
+    const decoded = cborDecode(bytes);
+    const raw = decoded instanceof Map ? decoded.get(4) : decoded?.[4];
+    if (raw == null) return undefined;
+    return typeof raw === "string" ? raw : tdKid.decode(toBstr(raw));
+  } catch {
+    return undefined;
+  }
+};
+
 // Verify COSE signature using the Sig_structure.
 const verifySignature = async (cose) => {
   const [protHdr, , payload, signature] = decodeSign1(cose);
   const sigStructure = ["Signature1", toBstr(protHdr), new Uint8Array(0), toBstr(payload)];
   const toSign = cborEncode(sigStructure);
   const sigP1363 = toBstr(signature);
-  const publicKey = await getPublicKey();
-  const response = await window.crypto.subtle.verify(
-    {
-      name: "ECDSA",
-      hash: { name: "SHA-256" },
-    },
-    publicKey,
-    sigP1363,
-    toSign
-  );
-  return response ? 1 : -1;
+  const publicKeys = await getPublicKeys(getKid(protHdr));
+  for (const publicKey of publicKeys) {
+    const response = await window.crypto.subtle.verify(
+      {
+        name: "ECDSA",
+        hash: { name: "SHA-256" },
+      },
+      publicKey,
+      sigP1363,
+      toSign
+    );
+    if (response) return 1;
+  }
+  return -1;
+};
+
+// Tolerance for a skewed device clock, in seconds.
+const CLOCK_SKEW_S = 60;
+
+// Temporal validity of the token. A valid signature says nothing about whether
+// the token is still current, so exp and iat are checked separately and the
+// reason is reported distinctly from a signature failure.
+export const checkValidity = (payload, nowMs = Date.now()) => {
+  const now = Math.floor(nowMs / 1000);
+  const exp = payload?.exp;
+  const iat = payload?.iat;
+  if (typeof exp === "number" && now > exp + CLOCK_SKEW_S) return "token_expired";
+  if (typeof iat === "number" && now + CLOCK_SKEW_S < iat) return "token_not_yet_valid";
+  return null;
 };
 
 const td = new TextDecoder();
@@ -142,6 +184,12 @@ export const readCoseContent = async (content) => {
   JWKS_BASE = jwkBase;
   const qr = text;
   const [, , payload] = decodeSign1(qr);
+  const claims = getPayload(payload);
   const verified = await verifySignature(qr, JWKS_BASE);
-  return { verified, payload: getPayload(payload) };
+  // A valid signature does not mean the token is still current.
+  if (verified === 1) {
+    const invalid = checkValidity(claims);
+    if (invalid) return { verified: -1, reason: invalid, payload: claims };
+  }
+  return { verified, payload: claims };
 };
