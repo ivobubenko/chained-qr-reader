@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sandboxed scanner — verification test harness</title>
+    <style>
+      body { margin: 0; padding: 12px; font-family: system-ui, sans-serif; }
+      h1 { font-size: 16px; margin: 0 0 8px; }
+      #scanner-mount { min-height: 360px; }
+      #panel { margin-top: 12px; border: 1px solid #ddd; border-radius: 8px; padding: 10px; }
+      #status { font-weight: 600; font-size: 15px; }
+      .ok { color: #0a7d28; }
+      .bad { color: #c00; }
+      .wait { color: #666; }
+      #log { font: 12px/1.45 ui-monospace, monospace; white-space: pre-wrap; word-break: break-all; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>Sandboxed scanner test (allow-scripts, opaque origin)</h1>
+    <div id="scanner-mount"></div>
+    <div id="panel">
+      <div id="status" class="wait">Waiting for a scan…</div>
+      <div id="log"></div>
+    </div>
+
+    <script type="module">
+      import {
+        readCoseContent,
+        createUiIframe,
+        FunctionChainer,
+      } from "./dist/secure-qr-scanner.es.js";
+
+      const statusEl = document.getElementById("status");
+      const logEl = document.getElementById("log");
+      const log = (line) => {
+        logEl.textContent += (logEl.textContent ? "\n" : "") + line;
+      };
+      const setStatus = (text, cls) => {
+        statusEl.textContent = text;
+        statusEl.className = cls;
+      };
+
+      // Surface anything that would otherwise only appear in the console, so the
+      // test can be run on a phone without DevTools.
+      window.addEventListener("error", (e) => log("window error: " + e.message));
+      window.addEventListener("unhandledrejection", (e) =>
+        log("unhandled rejection: " + (e.reason?.message || e.reason))
+      );
+
+      const JWK_BASE = "https://d2hnybskbnod8e.cloudfront.net/";
+      const qrPattern = "QR1:";
+
+      const buildDeepLinkPrefix = () => {
+        const url = new URL(window.location.href);
+        url.search = "";
+        url.hash = "";
+        return `${url.href}?cose1=`;
+      };
+      const deepLinkPrefix = buildDeepLinkPrefix();
+      const stripDeepLink = ({ text = "", prefix }) => {
+        const value = String(text);
+        return { text: value.startsWith(prefix) ? value.slice(prefix.length) : value };
+      };
+
+      const report = (result) => {
+        const verified = result?.verified;
+        if (verified === 1) {
+          setStatus("VERIFIED (signature valid, token current)", "ok");
+        } else if (verified === -1) {
+          setStatus("NOT VERIFIED" + (result?.reason ? " — " + result.reason : ""), "bad");
+        } else {
+          setStatus("Scanned, not a signed payload", "wait");
+        }
+        log("result: " + JSON.stringify(result, null, 1));
+        return result;
+      };
+
+      const securityChain = new FunctionChainer([
+        {
+          pattern: qrPattern,
+          functions: [
+            { fn: readCoseContent, context: { jwkBase: JWK_BASE } },
+            { fn: ({ ...r }) => report(r) },
+          ],
+        },
+        {
+          pattern: `${deepLinkPrefix}${qrPattern}`,
+          functions: [
+            { fn: stripDeepLink, context: { prefix: deepLinkPrefix } },
+            { fn: readCoseContent, context: { jwkBase: JWK_BASE } },
+            { fn: ({ ...r }) => report(r) },
+          ],
+        },
+        {
+          pattern: "",
+          functions: [{ fn: ({ text }) => report({ verified: 0, text }) }],
+        },
+      ]);
+
+      // Wrap check() so that a thrown verification error (unknown key, JWKS
+      // unavailable, malformed token) is visible on screen instead of silent.
+      const chain = {
+        check: async (text) => {
+          log("scanned text: " + String(text).slice(0, 120));
+          try {
+            return await securityChain.check(text);
+          } catch (err) {
+            setStatus("REJECTED — " + (err?.message || err), "bad");
+            log("error: " + (err?.stack || err));
+            return { verified: -1, reason: String(err?.message || err) };
+          }
+        },
+      };
+
+      const scannerIframe = await createUiIframe(chain, {
+        scannerModuleUrls: [new URL("./dist/secure-qr-scanner.es.js", import.meta.url).href],
+        expectedOrigin: window.location.origin,
+        iframeStyle: "width:100%;height:100%;border:0;display:block;background:transparent;",
+        parentTargetOrigin: "*",
+        parentMessageType: "secure-qr-scan-result",
+      });
+      document.getElementById("scanner-mount").appendChild(scannerIframe);
+      log("iframe sandbox = " + scannerIframe.sandbox);
+    </script>
+  </body>
+</html>
