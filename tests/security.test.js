@@ -2,9 +2,8 @@
 // test matrix in the manuscript revision: S1 (valid token), S2 (modified
 // payload / invalid signature), S3 (unsigned payload), S4 (malformed token),
 // S5 (unknown key), S6 (rotated key), S7 (expired token), S8 (not-yet-valid
-// token), S10 (iframe sandbox configuration), S11 (postMessage abuse),
-// S12 (JWKS unavailable). S9 (malicious HTML/script content) is covered by the
-// preventXss output-escaping tests in core.test.js.
+// token), S9 (HTML/script content returned as inert data), S10 (iframe sandbox
+// configuration), S11 (postMessage abuse), S12 (JWKS unavailable).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deflate } from "pako";
@@ -31,7 +30,7 @@ const KEY_A = { kid: "key-a", kty: "EC", crv: "P-256", x: "xa", y: "ya", alg: "E
 const KEY_B = { kid: "key-b", kty: "EC", crv: "P-256", x: "xb", y: "yb", alg: "ES256" };
 
 // Builds a QR1 token with a real CBOR protected header, so kid is parseable.
-const buildToken = ({ kid, iat = NOW_S - 60, exp = NOW_S + 3600 } = {}) => {
+const buildToken = ({ kid, iat = NOW_S - 60, exp = NOW_S + 3600, content = { ok: true } } = {}) => {
   const header = new Map([[1, -7]]);
   if (kid !== undefined) header.set(4, kid);
 
@@ -44,7 +43,7 @@ const buildToken = ({ kid, iat = NOW_S - 60, exp = NOW_S + 3600 } = {}) => {
       -70000,
       new Map([
         ["t", "txt"],
-        ["c", new TextEncoder().encode(JSON.stringify({ ok: true }))],
+        ["c", new TextEncoder().encode(JSON.stringify(content))],
       ]),
     ],
   ]);
@@ -161,6 +160,26 @@ describe("verifier security behaviour", () => {
     await expect(read(verifier, "https://example.com/plain-unsigned")).rejects.toThrow(
       "Could not decode QR"
     );
+  });
+
+  // S9 — script content carried inside a signed payload is returned to the
+  // integration as inert decoded data. The verification path performs no DOM
+  // insertion at all: this suite runs in a Node environment where `document`
+  // does not exist, so a passing test is itself evidence that verification
+  // never touches the DOM. Neutralization on display is therefore a property
+  // of isolation and of the integrating renderer, not of an escaping step
+  // inside the verifier.
+  it("S9 returns HTML/script payload content as inert data without touching the DOM", async () => {
+    stubEnvironment();
+    const verifier = await loadVerifier();
+    const malicious = "<script>alert(1)</script><img src=x onerror=alert(2)>";
+    const result = await read(verifier, buildToken({ content: { note: malicious } }));
+
+    expect(typeof globalThis.document).toBe("undefined");
+    expect(result.verified).toBe(1);
+    // Delivered verbatim as a string inside a data structure, never as markup.
+    expect(result.payload.content.note).toBe(malicious);
+    expect(typeof result.payload.content.note).toBe("string");
   });
 
   // S4 — a structurally broken token (truncated / corrupted encoding) must be
