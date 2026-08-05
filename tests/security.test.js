@@ -1,6 +1,10 @@
 // Adversarial test cases for the browser-side verifier, matching the security
-// test matrix in the manuscript revision: S5 (unknown key), S6 (rotated key),
-// S7 (expired token), S8 (not-yet-valid token), S12 (JWKS unavailable).
+// test matrix in the manuscript revision: S1 (valid token), S2 (modified
+// payload / invalid signature), S3 (unsigned payload), S4 (malformed token),
+// S5 (unknown key), S6 (rotated key), S7 (expired token), S8 (not-yet-valid
+// token), S10 (iframe sandbox configuration), S11 (postMessage abuse),
+// S12 (JWKS unavailable). S9 (malicious HTML/script content) is covered by the
+// preventXss output-escaping tests in core.test.js.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { deflate } from "pako";
@@ -83,7 +87,8 @@ describe("verifier security behaviour", () => {
     vi.restoreAllMocks();
   });
 
-  it("accepts a valid, current token", async () => {
+  // S1 — the baseline positive case.
+  it("S1 accepts a valid, current token", async () => {
     stubEnvironment();
     const verifier = await loadVerifier();
     const result = await read(verifier, buildToken());
@@ -140,11 +145,135 @@ describe("verifier security behaviour", () => {
     await expect(read(verifier, buildToken())).rejects.toThrow("jwks_http_500");
   });
 
-  it("rejects a token whose signature does not verify", async () => {
+  // S2 — a payload whose signed bytes were modified after signing must fail
+  // signature verification.
+  it("S2 rejects a token whose signature does not verify", async () => {
     stubEnvironment({ verifyFor: () => false });
     const verifier = await loadVerifier();
     const result = await read(verifier, buildToken());
     expect(result.verified).toBe(-1);
+  });
+
+  // S3 — plain unsigned content must not enter the COSE verification path.
+  it("S3 rejects an unsigned payload without the QR1 prefix", async () => {
+    stubEnvironment();
+    const verifier = await loadVerifier();
+    await expect(read(verifier, "https://example.com/plain-unsigned")).rejects.toThrow(
+      "Could not decode QR"
+    );
+  });
+
+  // S4 — a structurally broken token (truncated / corrupted encoding) must be
+  // rejected with a decode error, not partially processed.
+  it("S4 rejects a malformed or truncated token", async () => {
+    stubEnvironment();
+    const verifier = await loadVerifier();
+    const truncated = buildToken().slice(0, 40);
+    await expect(read(verifier, truncated)).rejects.toThrow();
+    await expect(read(verifier, "QR1:!!!not-base64url!!!")).rejects.toThrow();
+  });
+});
+
+describe("iframe isolation and postMessage contract", () => {
+  beforeEach(() => ensureBase64Helpers());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  const loadUi = async () => {
+    vi.resetModules();
+    return import("../src/ui/functions.js");
+  };
+
+  const makeRelayArgs = (overrides = {}) => {
+    const contentWindow = {};
+    const posted = [];
+    vi.stubGlobal("window", {
+      parent: { postMessage: (msg, origin) => posted.push({ msg, origin }) },
+      location: { origin: "https://app.example" },
+    });
+    const check = vi.fn(async (text) => ({ verified: 1, text }));
+    return {
+      posted,
+      check,
+      args: {
+        event: {
+          source: contentWindow,
+          origin: "null",
+          data: { type: "secure-qr-scan", channel: "chan1", text: "QR1:abc" },
+        },
+        iframe: { contentWindow },
+        expectedOrigin: "https://app.example",
+        messageType: "secure-qr-scan",
+        messageChannel: "chan1",
+        onSuccess: { check },
+        parentMessageType: "secure-qr-scan-result",
+        parentTargetOrigin: "https://app.example",
+        ...overrides,
+      },
+    };
+  };
+
+  // S10 — the scanner iframe must not combine allow-scripts with
+  // allow-same-origin, so the scanner runs in an opaque origin.
+  it("S10 configures the sandbox without allow-same-origin", async () => {
+    const iframeStub = { style: {}, addEventListener: vi.fn() };
+    vi.stubGlobal("document", { createElement: vi.fn(() => iframeStub) });
+    vi.stubGlobal("window", {
+      addEventListener: vi.fn(),
+      location: { origin: "https://app.example" },
+    });
+    vi.resetModules();
+    const { createUiIframe } = await import("../src/ui/iframe.js");
+    const iframe = await createUiIframe({ check: async () => ({}) });
+    expect(iframe.sandbox).toBe("allow-scripts");
+    expect(iframe.sandbox).not.toContain("allow-same-origin");
+  });
+
+  // S11 — messages that do not come from the embedded scanner window, or that
+  // carry a foreign origin, type, or channel, must be ignored.
+  it("S11 ignores postMessage events from a foreign window", async () => {
+    const { relayIframeScanResult } = await loadUi();
+    const { posted, check, args } = makeRelayArgs();
+    await relayIframeScanResult({ ...args, event: { ...args.event, source: {} } });
+    expect(check).not.toHaveBeenCalled();
+    expect(posted).toHaveLength(0);
+  });
+
+  it("S11 ignores postMessage events from a foreign origin", async () => {
+    const { relayIframeScanResult } = await loadUi();
+    const { posted, check, args } = makeRelayArgs();
+    await relayIframeScanResult({
+      ...args,
+      event: { ...args.event, origin: "https://attacker.example" },
+    });
+    expect(check).not.toHaveBeenCalled();
+    expect(posted).toHaveLength(0);
+  });
+
+  it("S11 ignores postMessage events with a wrong type or channel", async () => {
+    const { relayIframeScanResult } = await loadUi();
+    const { posted, check, args } = makeRelayArgs();
+    await relayIframeScanResult({
+      ...args,
+      event: { ...args.event, data: { ...args.event.data, channel: "other" } },
+    });
+    await relayIframeScanResult({
+      ...args,
+      event: { ...args.event, data: { ...args.event.data, type: "other" } },
+    });
+    expect(check).not.toHaveBeenCalled();
+    expect(posted).toHaveLength(0);
+  });
+
+  it("relays a valid scanner message from the opaque origin", async () => {
+    const { relayIframeScanResult } = await loadUi();
+    const { posted, check, args } = makeRelayArgs();
+    await relayIframeScanResult(args);
+    expect(check).toHaveBeenCalledWith("QR1:abc");
+    expect(posted).toHaveLength(1);
+    expect(posted[0].msg.type).toBe("secure-qr-scan-result");
   });
 });
 

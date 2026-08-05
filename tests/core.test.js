@@ -32,6 +32,16 @@ describe("preventXss", () => {
     expect(preventXss(null)).toBe("null");
     expect(preventXss(123)).toBe("123");
   });
+
+  // S9 — HTML/script content carried in a payload must be neutralized before
+  // it can reach the document as markup.
+  it("S9 escapes HTML and script content in payloads", () => {
+    const escaped = preventXss('<script>alert("x")</script>');
+    expect(escaped).not.toContain("<script>");
+    expect(escaped).not.toContain("</script>");
+    expect(escaped).toContain("&lt;script&gt;");
+    expect(preventXss('<img src=x onerror=alert(1)>')).not.toContain("<img");
+  });
 });
 
 describe("FunctionChainer", () => {
@@ -128,8 +138,6 @@ describe("check_signature", () => {
   });
 
   it("verifies and returns decoded payload from QR1 content", async () => {
-    // exp/iat are now checked, so this fixture has to be a currently valid token
-    // rather than the fixed 2024 timestamps used before.
     const nowS = Math.floor(Date.now() / 1000);
     const payloadClaims = new Map([
       [1, "issuer"],

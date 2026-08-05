@@ -164,7 +164,12 @@ export const relayIframeScanResult = async ({
   parentTargetOrigin,
 }) => {
   if (event.source !== iframe.contentWindow) return;
-  if (event.origin !== expectedOrigin) return;
+  // A sandboxed srcdoc iframe without allow-same-origin runs in an opaque
+  // origin, which the browser reports as the literal string "null". The
+  // authenticating check is the source comparison above (only the exact
+  // embedded window passes); the origin check additionally pins the sender to
+  // either the opaque scanner origin or the expected application origin.
+  if (event.origin !== "null" && event.origin !== expectedOrigin) return;
   const data = event.data;
   if (!data || data.type !== messageType || data.channel !== messageChannel) return;
 

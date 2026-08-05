@@ -1,5 +1,13 @@
 import { inflate } from "pako";
-import { decode as cborDecode, encode as cborEncode } from "cbor-x";
+import { decode as cborDecode, Encoder } from "cbor-x";
+
+// The Sig_structure has to be re-encoded byte-for-byte as the signer produced it,
+// otherwise the signature cannot verify. By default cbor-x wraps a Uint8Array in
+// tag 64 (a cbor-x extension), whereas the signing service emits a plain CBOR
+// byte string. Encoding with tagUint8Array disabled produces the canonical form
+// that COSE requires and that the signer actually signed over.
+const sigEncoder = new Encoder({ tagUint8Array: false });
+const cborEncode = (value) => sigEncoder.encode(value);
 
 // Simple in-memory JWKS cache (optionally backed by localStorage).
 let cache = { exp: 0, keys: [] };

@@ -26,7 +26,11 @@ export async function createUiIframe(onSuccess, options = {}) {
   iframe.allow = "camera *; autoplay *";
   iframe.referrerPolicy = "no-referrer";
   iframe.loading = "eager";
-  iframe.sandbox = "allow-scripts allow-same-origin";
+  // Deliberately NOT combined with allow-same-origin: an srcdoc iframe with
+  // allow-scripts alone runs in an opaque origin, so scanner code cannot reach
+  // the embedding origin's DOM, storage, or cookies. Communication happens only
+  // through the postMessage contract validated in relayIframeScanResult.
+  iframe.sandbox = "allow-scripts";
   iframe.style.cssText = settings.iframeStyle;
 
   iframe.srcdoc = createIframeSrcdoc({
